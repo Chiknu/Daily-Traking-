@@ -37,7 +37,8 @@ BRAND_DARK = "#4338CA"   # hover / pressed
 BRAND_SOFT = "#EEF2FF"   # light tint for backgrounds
 BRAND_LINE = "#C7D2FE"   # light tint for borders
 BLUE, SLATE, GRID = BRAND, "#64748B", "#E2E8F0"
-STATUS_COLORS = {"Met Goal": "#22A06B", "On Track": "#D99A2B", "Needs Focus": "#D65A5A"}
+OK, WARN, BAD = "#16A34A", "#F59E0B", "#EF4444"      # completed / in progress / missed
+STATUS_COLORS = {"Met Goal": OK, "On Track": WARN, "Needs Focus": BAD}
 
 STARTER_HABITS = [
     ("Morning Meditation (15 min)", "Mindfulness", "Right after waking up; sit by the window with a timer"),
@@ -65,7 +66,7 @@ CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 :root { --brand:__BRAND__; --brand-dark:__BRAND_DARK__; --brand-soft:__BRAND_SOFT__; --brand-line:__BRAND_LINE__;
-        --bg:#F4F5F9; --card:#FFFFFF; --line:#E6E8EF; --ink:#111827; --mute:#6B7280; --ok:#22A06B; --ok-soft:#E6F6EE; }
+        --bg:#F7F8FC; --card:#FFFFFF; --line:#E6E8EF; --ink:#111827; --mute:#6B7280; --ok:#16A34A; --ok-soft:#DCFCE7; }
 html, body, [class*="css"], .stMarkdown, button, input, textarea { font-family:'Inter',sans-serif; }
 #MainMenu, footer { visibility:hidden; }
 header[data-testid="stHeader"] { background:transparent; }
@@ -86,7 +87,7 @@ header[data-testid="stHeader"] { background:transparent; }
 .kpi .v { font-size:2rem; font-weight:700; color:var(--ink); line-height:1.2; margin-top:6px; }
 .kpi .s { font-size:.8rem; color:var(--mute); margin-top:2px; }
 .kpi .s.up { color:var(--ok); font-weight:600; }
-.kpi .s.down { color:#DC2626; font-weight:600; }
+.kpi .s.down { color:#EF4444; font-weight:600; }
 .kpi .bar { height:6px; border-radius:99px; background:#EEF0F5; margin-top:14px; }
 .kpi .bar span { display:block; height:100%; border-radius:99px; background:var(--ok); }
 .kpi.hero { background:var(--brand); border-color:var(--brand); }
@@ -110,21 +111,22 @@ header[data-testid="stHeader"] { background:transparent; }
 .empty b { color:var(--ink); font-size:1.02rem; }
 
 /* sidebar */
-section[data-testid="stSidebar"] { background:var(--card); border-right:1px solid var(--line); }
+section[data-testid="stSidebar"] { background:#F1F3FF; border-right:1px solid #E0E7FF; }
 .brand { font-size:1.2rem; font-weight:700; color:var(--brand); }
 .brand-sub { font-size:.74rem; color:var(--mute); margin-bottom:1rem; }
 .userchip { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:14px; margin:.2rem 0 1.2rem;
-            background:var(--bg); border:1px solid var(--line); }
+            background:#fff; border:1px solid #E0E7FF; }
 .avatar { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center;
           color:#fff; font-weight:600; font-size:.85rem; background:var(--brand); }
 .userchip .n { font-weight:600; font-size:.88rem; line-height:1.1; color:var(--ink); }
 .userchip .r { font-size:.7rem; color:var(--mute); }
 section[data-testid="stSidebar"] div[role="radiogroup"] { gap:4px; }
+section[data-testid="stSidebar"] div[role="radiogroup"] label p { color:#334155; }
 section[data-testid="stSidebar"] div[role="radiogroup"] label { padding:10px 12px; border-radius:10px; width:100%; cursor:pointer; }
-section[data-testid="stSidebar"] div[role="radiogroup"] label:hover:not([data-selected="true"]) { background:var(--bg); }
+section[data-testid="stSidebar"] div[role="radiogroup"] label:hover:not([data-selected="true"]) { background:#E0E7FF; }
 section[data-testid="stSidebar"] label[data-testid="stRadioOption"] > div > div:first-child { display:none; }
-section[data-testid="stSidebar"] label[data-testid="stRadioOption"][data-selected="true"] { background:var(--brand-soft); }
-section[data-testid="stSidebar"] label[data-testid="stRadioOption"][data-selected="true"] p { color:var(--brand); font-weight:600; }
+section[data-testid="stSidebar"] label[data-testid="stRadioOption"][data-selected="true"] { background:#4F46E5; }
+section[data-testid="stSidebar"] div[role="radiogroup"] label[data-testid="stRadioOption"][data-selected="true"] p { color:#fff !important; font-weight:600; }
 
 /* controls */
 .stButton > button, .stDownloadButton > button { border-radius:10px; font-weight:600; }
@@ -142,6 +144,44 @@ div[data-testid="stVerticalBlockBorderWrapper"] { border-radius:16px; }
 div[data-testid="stExpander"] { background:#fff; border-radius:16px; }
 div[data-testid="stAlert"] { border-radius:12px; }
 .stCaption, [data-testid="stCaptionContainer"] { color:var(--mute); }
+
+/* tinted summary cards */
+.kpi.t-purple { background:#F1EEFF; border-color:#DDD6FE; } .kpi.t-purple .v { color:#4F46E5; }
+.kpi.t-green  { background:#E8F8EE; border-color:#BBF7D0; } .kpi.t-green .v  { color:#16A34A; }
+.kpi.t-orange { background:#FFF4E5; border-color:#FED7AA; } .kpi.t-orange .v { color:#D97706; }
+.kpi.t-green .bar, .kpi.t-orange .bar { background:rgba(255,255,255,.7); }
+.kpi.t-orange .bar span { background:#F59E0B; }
+.kpi.plain .v { color:var(--ink); }
+.kpi .list { margin-top:6px; font-size:.82rem; color:var(--ink); line-height:1.55; }
+.kpi .list b { color:#EF4444; font-weight:600; }
+.kpi .big { font-size:1.15rem; font-weight:700; color:var(--ink); line-height:1.3; margin-top:8px; }
+
+/* weekly check-in grid */
+.gh { text-align:center; font-size:.72rem; color:var(--mute); font-weight:600; line-height:1.2; }
+.gh b { display:block; font-size:1.05rem; color:var(--ink); }
+.gh.today b { color:#0284C7; }
+.gh.today { color:#0284C7; }
+.hname { font-size:.9rem; font-weight:600; color:var(--ink); }
+.hname span { display:block; font-size:.72rem; font-weight:500; color:var(--mute); }
+[class*="st-key-chk-"] { border-radius:10px; padding:8px 0; display:flex; justify-content:center; min-height:40px; }
+[class*="st-key-chk-missed"]  { background:#FEF2F2; }
+[class*="st-key-chk-pending"] { background:#F1F5F9; }
+[class*="st-key-chk-today"]   { background:#E0F2FE; }
+[class*="st-key-chk-"]:has(input:checked) { background:#DCFCE7 !important; }
+[class*="st-key-chk-"] label[data-selected="true"] > div:first-of-type { background-color:#16A34A !important; border-color:#16A34A !important; }
+[class*="st-key-chk-"] { width:100% !important; }
+.glegend { display:flex; gap:16px; flex-wrap:wrap; font-size:.75rem; color:var(--mute); margin-top:.6rem; }
+.glegend i { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+
+/* consistency table */
+.ptable { background:#fff; border:1px solid var(--line); border-radius:16px; padding:6px 20px; }
+.prow { display:grid; grid-template-columns:2.2fr .7fr 2.2fr .7fr 2.6fr; gap:14px; align-items:center;
+        padding:13px 0; border-bottom:1px solid #F0F1F6; font-size:.88rem; }
+.prow:last-child { border-bottom:0; }
+.prow.head { font-size:.72rem; font-weight:600; color:var(--mute); text-transform:uppercase; letter-spacing:.05em; padding:12px 0; }
+.prow .nm { font-weight:600; color:var(--ink); } .prow .cue { color:var(--mute); font-size:.82rem; }
+.pbar { height:9px; border-radius:99px; background:#EEF0F5; } .pbar span { display:block; height:100%; border-radius:99px; }
+.prow .pc { font-weight:700; }
 
 /* login page */
 .login-hero { text-align:center; margin-bottom:1.4rem; }
@@ -171,18 +211,53 @@ def section(title):
     st.markdown(f'<div class="sec">{title}</div>', unsafe_allow_html=True)
 
 
-def kpi(label, value, sub="", progress=None, tone="", hero=False):
+def kpi(label, value, sub="", progress=None, tone="", hero=False, tint="", raw=""):
     bar = ""
     if progress is not None:
         bar = f'<div class="bar"><span style="width:{min(max(progress, 0), 100):.0f}%"></span></div>'
-    return (f'<div class="kpi{" hero" if hero else ""}"><div class="l">{label}</div><div class="v">{value}</div>'
-            f'<div class="s {tone}">{sub}</div>{bar}</div>')
+    cls = " hero" if hero else (f" t-{tint}" if tint else "")
+    body = raw or f'<div class="s {tone}">{sub}</div>{bar}'
+    return f'<div class="kpi{cls}"><div class="l">{label}</div><div class="v">{value}</div>{body}</div>'
 
 
-def kpi_row(items):
+def kpi_row(items, tints=None):
+    """tints=None -> first card is solid brand; tints=['purple','green','orange'] -> soft tinted cards."""
     for i, (col, item) in enumerate(zip(st.columns(len(items), gap="medium"), items)):
-        item = list(item) + [None] * (5 - len(item))
-        col.markdown(kpi(*item, hero=(i == 0)), unsafe_allow_html=True)
+        label, value, sub, progress, tone = (list(item) + [None] * 5)[:5]
+        col.markdown(kpi(label, value, sub or "", progress, tone or "",
+                         hero=(tints is None and i == 0), tint=(tints[i] if tints else "")),
+                     unsafe_allow_html=True)
+
+
+def perf_color(rate):
+    """Colour a habit by how consistent it was."""
+    if rate <= 30:
+        return BAD
+    if rate <= 60:
+        return "#F97316"
+    if rate <= 85:
+        return "#3B82F6"
+    return OK
+
+
+def streak_days(uid, habits, ref):
+    """Consecutive days (ending at ref) with at least 80% of habits done."""
+    if not habits:
+        return 0
+    start = ref - timedelta(days=60)
+    done = db.get_done(uid, start, ref)
+
+    def ok(d):
+        return pct(sum((h["id"], d.isoformat()) in done for h in habits), len(habits)) >= 80
+
+    d = ref
+    if d == date.today() and not ok(d):   # today is still in progress
+        d -= timedelta(days=1)
+    s = 0
+    while d >= start and ok(d):
+        s += 1
+        d -= timedelta(days=1)
+    return s
 
 
 def week_start(d: date) -> date:
@@ -348,13 +423,32 @@ def page_dashboard(uid, ref, username):
                     "Open <b>Manage Habits</b> in the sidebar to add your own or load the starter pack.")
         return
 
+    # ---- highlights
+    habit_days = [(h["name"], sum((h["id"], d.isoformat()) in done for d in days)) for h in habits]
+    best = max(habit_days, key=lambda x: x[1])
+    weakest = sorted(habit_days, key=lambda x: x[1])[:3]
+    ti = days.index(ref)
+    today_rate = pct(day_counts[ti], n)
+    stk = streak_days(uid, habits, ref)
+    section("Highlights")
+    c1, c2, c3, c4 = st.columns(4, gap="medium")
+    c1.markdown(kpi("Today's focus", f"{today_rate:.0f}%", f"{day_counts[ti]} of {n} habits completed",
+                    today_rate, tint="purple"), unsafe_allow_html=True)
+    c2.markdown(kpi("Weekly streak", f"{stk} day{'s' if stk != 1 else ''}",
+                    "Consecutive days with 80%+ done", None, tint="orange"), unsafe_allow_html=True)
+    c3.markdown(kpi("Best habit", "", tint="green",
+                    raw=f'<div class="big">{best[0] if best[1] else "—"}</div>'
+                        f'<div class="s">{best[1]} of 7 days this week</div>'), unsafe_allow_html=True)
+    lst = "<br>".join(f"{nm} &nbsp;<b>{d}/7</b>" for nm, d in weakest)
+    c4.markdown(kpi("Needs attention", "", raw=f'<div class="list">{lst}</div>'), unsafe_allow_html=True)
+
     section("This week")
     day_cards(days, day_counts, n)
 
     left, right = st.columns(2, gap="large")
     rates = [pct(c, n) for c in day_counts]
     with left:
-        section("Daily completion rate")
+        section("Weekly performance")
         wdf = pd.DataFrame({"Day": DAYS, "Rate": rates, "Done": day_counts,
                             "Label": [f"{r:.0f}%" for r in rates],
                             "Status": [day_status(r) for r in rates]})
@@ -368,8 +462,11 @@ def page_dashboard(uid, ref, username):
         labels = alt.Chart(wdf).mark_text(dy=-8, fontSize=11, color="#475569").encode(
             x=x, y="Rate:Q", text="Label:N")
         goal = alt.Chart(pd.DataFrame({"y": [80]})).mark_rule(strokeDash=[4, 4], color="#9CA3AF").encode(y="y:Q")
-        st.altair_chart(style_chart((bars + labels + goal).properties(height=290)), width="stretch")
-        st.caption("Dashed line: 80% target. Met Goal ≥ 80%, On Track ≥ 70%.")
+        trend = alt.Chart(wdf).mark_line(color=BRAND, strokeWidth=2.5, point=alt.OverlayMarkDef(color=BRAND, size=55),
+                                         interpolate="monotone").encode(x=x, y="Rate:Q")
+        st.altair_chart(style_chart((bars + trend + labels + goal).properties(height=290)), width="stretch")
+        st.caption("Bars: daily completion (Mon–Sun), line: trend. Dashed line: 80% target. "
+                   "Green ≥ 80%, amber ≥ 70%, red below.")
     with right:
         section("Habit performance (days completed of 7)")
         pdf = pd.DataFrame({
@@ -439,50 +536,59 @@ def page_habits(uid, ref):
         return
 
     done = db.get_done(uid, days[0], days[-1])
-    df = pd.DataFrame(
-        [{"Habit": h["name"], "Category": h["category"] or "Other",
-          **{labels[i]: (h["id"], days[i].isoformat()) in done for i in range(7)}}
-         for h in habits])
-
     n = len(habits)
-    ints = df[labels].astype(int)
-    days_done = [int(v) for v in ints.sum(axis=1)]
-    day_counts = [int(v) for v in ints.sum(axis=0)]
+    days_done = [sum((h["id"], d.isoformat()) in done for d in days) for h in habits]
+    day_counts = [sum((h["id"], d.isoformat()) in done for h in habits) for d in days]
     avg = pct(sum(days_done), n * 7)
     perfect = sum(d == 7 for d in days_done)
     kpi_row([
-        ("Total habits", n, "Active this week"),
-        ("Average consistency", f"{avg:.1f}%", "Across all habits", avg),
-        ("Perfect habits", f"{perfect} / {n}", "Completed all 7 days", pct(perfect, n)),
-    ])
+        ("Total habits", n, "Active habits"),
+        ("Consistency", f"{avg:.0f}%", "Weekly average", avg),
+        ("Perfect", f"{perfect}/{n}", "All 7 days", pct(perfect, n)),
+    ], tints=["purple", "green", "orange"])
+
     section("Weekly check-in")
-    edited = st.data_editor(
-        df, hide_index=True, width="stretch", key=f"grid_{wk}",
-        disabled=["Habit", "Category"],
-        column_config={"Habit": st.column_config.TextColumn("Habit", width="medium"),
-                       "Category": st.column_config.TextColumn("Category", width="small"),
-                       **{l: st.column_config.CheckboxColumn(l, width="small") for l in labels}})
-    changed = False
-    for i, h in enumerate(habits):
-        for j, lab in enumerate(labels):
-            new, old = bool(edited.iloc[i][lab]), bool(df.iloc[i][lab])
-            if new != old:
-                db.set_log(uid, h["id"], days[j], new)
-                changed = True
-    if changed:
-        st.rerun()
+    today = date.today()
+
+    def toggle(hid, day, key):
+        db.set_log(uid, hid, day, st.session_state[key])
+
+    with st.container(border=True):
+        cols = st.columns([2.6] + [1] * 7, gap="small", vertical_alignment="center")
+        cols[0].markdown('<div class="gh" style="text-align:left">HABIT</div>', unsafe_allow_html=True)
+        for j, d in enumerate(days):
+            cls = " today" if d == today else ""
+            cols[j + 1].markdown(f'<div class="gh{cls}">{DAYS[j]}<b>{d.day}</b></div>', unsafe_allow_html=True)
+        for i, h in enumerate(habits):
+            cols = st.columns([2.6] + [1] * 7, gap="small", vertical_alignment="center")
+            cols[0].markdown(f'<div class="hname">{h["name"]}<span>{h["category"] or "Other"} · {days_done[i]}/7 days</span></div>',
+                             unsafe_allow_html=True)
+            for j, d in enumerate(days):
+                state = "today" if d == today else ("missed" if d < today else "pending")
+                key = f"chk-{state}-d{j}-h{h['id']}-{wk}"
+                cols[j + 1].checkbox(f"{h['name']} {d}", value=(h["id"], d.isoformat()) in done, key=key,
+                                     label_visibility="collapsed", on_change=toggle, args=(h["id"], d, key))
+    st.markdown(
+        '<div class="glegend"><span><i style="background:#DCFCE7;border:1px solid #16A34A"></i>Completed</span>'
+        '<span><i style="background:#FEF2F2;border:1px solid #FCA5A5"></i>Missed</span>'
+        '<span><i style="background:#F1F5F9;border:1px solid #CBD5E1"></i>Upcoming</span>'
+        '<span><i style="background:#E0F2FE;border:1px solid #7DD3FC"></i>Today</span></div>',
+        unsafe_allow_html=True)
 
     section("Consistency by habit")
-    summary = pd.DataFrame({
-        "Habit": [h["name"] for h in habits],
-        "Days Done": days_done,
-        "Consistency": [pct(d, 7) for d in days_done],
-        "Cue / Note": [h["cue"] or "" for h in habits],
-    })
-    st.dataframe(summary, hide_index=True, width="stretch", column_config={
-        "Consistency": st.column_config.ProgressColumn(
-            "Consistency", min_value=0, max_value=100, format="%.0f%%"),
-        "Cue / Note": st.column_config.TextColumn("Cue / Note", width="large")})
+    rows = ['<div class="prow head"><div>Habit</div><div>Days</div><div>Progress</div><div>%</div><div>Cue / Note</div></div>']
+    for h, dd in zip(habits, days_done):
+        r = pct(dd, 7)
+        c = perf_color(r)
+        rows.append(f'<div class="prow"><div class="nm">{h["name"]}</div><div>{dd}/7</div>'
+                    f'<div class="pbar"><span style="width:{r:.0f}%;background:{c}"></span></div>'
+                    f'<div class="pc" style="color:{c}">{r:.0f}%</div><div class="cue">{h["cue"] or ""}</div></div>')
+    st.markdown(f'<div class="ptable">{"".join(rows)}</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="glegend"><span><i style="background:#EF4444"></i>0–30% Red</span>'
+        '<span><i style="background:#F97316"></i>31–60% Orange</span>'
+        '<span><i style="background:#3B82F6"></i>61–85% Blue</span>'
+        '<span><i style="background:#16A34A"></i>86–100% Green</span></div>', unsafe_allow_html=True)
 
     section("Daily totals")
     day_cards(days, day_counts, n)
