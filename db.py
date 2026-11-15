@@ -8,7 +8,7 @@ import os
 import secrets
 import sqlite3
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 DB_PATH = os.environ.get("TRACKER_DB", os.path.join("data", "tracker.db"))
 PBKDF2_ITERATIONS = 200_000
@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS users(
     salt BLOB NOT NULL,
     pw_hash BLOB NOT NULL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS sessions(
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS habits(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,6 +129,42 @@ def authenticate(username: str, password: str):
     if row and hmac.compare_digest(_hash(password, row["salt"]), row["pw_hash"]):
         return {"id": row["id"], "username": row["username"]}
     return None
+
+
+# -------------------------------------------------- persistent login (cookie)
+SESSION_DAYS = 30
+
+
+def _tok_hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def create_session(user_id: int) -> str:
+    """Create a login token (stored hashed). The raw token goes into a browser cookie."""
+    token = secrets.token_urlsafe(32)
+    exp = (datetime.utcnow() + timedelta(days=SESSION_DAYS)).isoformat()
+    with conn() as c:
+        c.execute("DELETE FROM sessions WHERE expires_at < ?", (datetime.utcnow().isoformat(),))
+        c.execute("INSERT INTO sessions(token_hash, user_id, expires_at) VALUES(?,?,?)",
+                  (_tok_hash(token), user_id, exp))
+    return token
+
+
+def user_from_token(token):
+    if not token:
+        return None
+    with conn() as c:
+        row = c.execute(
+            "SELECT u.id, u.username FROM sessions s JOIN users u ON u.id = s.user_id "
+            "WHERE s.token_hash=? AND s.expires_at > ?",
+            (_tok_hash(token), datetime.utcnow().isoformat())).fetchone()
+    return {"id": row["id"], "username": row["username"]} if row else None
+
+
+def end_session(token):
+    if token:
+        with conn() as c:
+            c.execute("DELETE FROM sessions WHERE token_hash=?", (_tok_hash(token),))
 
 
 # ------------------------------------------------------- generic tables
