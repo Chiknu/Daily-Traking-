@@ -365,6 +365,20 @@ def table_editor(table, uid, key, config, scope_col=None, scope_val=None,
 
 
 # ------------------------------------------------------------------------ auth
+COOKIE = "lt_session"
+
+
+def _cookie_js(token):
+    """Set (token) or clear (None) the login cookie in the browser."""
+    if token:
+        js = (f"document.cookie='{COOKIE}={token}; path=/; max-age={db.SESSION_DAYS * 86400}; SameSite=Lax'"
+              "+(location.protocol==='https:'?'; Secure':'');")
+    else:
+        js = f"document.cookie='{COOKIE}=; path=/; max-age=0; SameSite=Lax';"
+    html = f"<script>(function(){{const document=window.parent.document;{js}}})();</script>"
+    st.components.v1.html(html, height=0)
+
+
 def auth_view():
     _, mid, _ = st.columns([1, 1.15, 1])
     with mid:
@@ -383,6 +397,7 @@ def auth_view():
                         user = db.authenticate(u, p)
                         if user:
                             st.session_state["user"] = user
+                            st.session_state["_new_token"] = db.create_session(user["id"])
                             st.rerun()
                         st.error("Incorrect username or password.")
             with t_signup:
@@ -737,9 +752,23 @@ def page_settings(uid, username):
 
 
 # ------------------------------------------------------------------------ main
+# Stay logged in across refreshes / new tabs: restore the user from the login cookie.
 if "user" not in st.session_state:
+    _tok = st.context.cookies.get(COOKIE)
+    _u = db.user_from_token(_tok)
+    if _u:
+        st.session_state["user"] = _u
+        st.session_state["_token"] = _tok
+
+if "user" not in st.session_state:
+    if st.session_state.pop("_clear_cookie", False):
+        _cookie_js(None)
     auth_view()
     st.stop()
+
+if "_new_token" in st.session_state:          # just logged in -> write the cookie once
+    st.session_state["_token"] = st.session_state.pop("_new_token")
+    _cookie_js(st.session_state["_token"])
 
 user = st.session_state["user"]
 uid = user["id"]
@@ -762,7 +791,9 @@ with st.sidebar:
     ref = st.date_input("Reporting date", value=date.today(),
                         help="The week and month shown on every page are based on this date.")
     if st.button("Log out", width="stretch", icon=":material/logout:"):
+        db.end_session(st.session_state.get("_token"))
         st.session_state.clear()
+        st.session_state["_clear_cookie"] = True
         st.rerun()
 
 {
