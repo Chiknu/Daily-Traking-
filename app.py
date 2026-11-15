@@ -145,6 +145,13 @@ div[data-testid="stExpander"] { background:#fff; border-radius:16px; }
 div[data-testid="stAlert"] { border-radius:12px; }
 .stCaption, [data-testid="stCaptionContainer"] { color:var(--mute); }
 
+/* sidebar hide / unhide buttons - always visible */
+[data-testid="stSidebarCollapseButton"] button, [data-testid="stExpandSidebarButton"] {
+    opacity:1 !important; visibility:visible !important; background:#4F46E5 !important; color:#fff !important;
+    border-radius:10px !important; }
+[data-testid="stSidebarCollapseButton"] button svg, [data-testid="stExpandSidebarButton"] svg { color:#fff !important; fill:#fff !important; }
+[data-testid="stSidebarCollapseButton"] { opacity:1 !important; visibility:visible !important; }
+
 /* tinted summary cards */
 .kpi.t-purple { background:#F1EEFF; border-color:#DDD6FE; } .kpi.t-purple .v { color:#4F46E5; }
 .kpi.t-green  { background:#E8F8EE; border-color:#BBF7D0; } .kpi.t-green .v  { color:#16A34A; }
@@ -310,6 +317,12 @@ def style_chart(chart):
             .configure_legend(labelColor=SLATE, labelFontSize=11, symbolType="square"))
 
 
+def csv_button(df, name, key):
+    """Small 'Download CSV' button for a table."""
+    st.download_button("Download CSV", df.to_csv(index=False).encode("utf-8-sig"),
+                       file_name=f"{name}.csv", mime="text/csv", key=key, icon=":material/download:")
+
+
 def table_editor(table, uid, key, config, scope_col=None, scope_val=None,
                  date_cols=(), bool_cols=(), text_cols=(), defaults=None):
     """Editable table (add / edit rows; no delete) backed by the DB."""
@@ -333,7 +346,12 @@ def table_editor(table, uid, key, config, scope_col=None, scope_val=None,
     except Exception:  # older Streamlit: fall back; db.save_rows never deletes anyway
         edited = st.data_editor(df, num_rows="dynamic", hide_index=True,
                                 column_config=cfg, key=f"{key}_{ver}", width="stretch")
-    if st.button("Save changes", key=f"{key}_save", type="primary", icon=":material/save:"):
+    b1, b2, _ = st.columns([2, 2.2, 5])
+    with b2:
+        csv_button(df.drop(columns=["id"]), key, f"{key}_csv")
+    with b1:
+        save = st.button("Save changes", key=f"{key}_save", type="primary", icon=":material/save:")
+    if save:
         records = edited.to_dict("records")
         for r in records:
             for k, v in (defaults or {}).items():
@@ -489,6 +507,7 @@ def page_dashboard(uid, ref, username):
         groups.setdefault(h["category"] or "Other", []).append(dd)
     cdf = pd.DataFrame([{"Category": k, "Habits": len(v), "Share": round(pct(len(v), n), 1),
                          "Avg days done": round(sum(v) / len(v), 1)} for k, v in groups.items()])
+    csv_button(cdf, "category_breakdown", "csv_cat")
     st.dataframe(cdf, hide_index=True, width="stretch", column_config={
         "Share": st.column_config.ProgressColumn("Share of habits", min_value=0, max_value=100, format="%.0f%%"),
         "Avg days done": st.column_config.NumberColumn("Avg days done (of 7)", format="%.1f")})
@@ -514,6 +533,7 @@ def page_dashboard(uid, ref, username):
                                    alt.Tooltip("Completion:Q", format=".0f", title="Completion %"), "Status"])
     rule = alt.Chart(pd.DataFrame({"y": [80]})).mark_rule(strokeDash=[4, 4], color="#9CA3AF").encode(y="y:Q")
     st.altair_chart(style_chart((line + pts + rule).properties(height=240)), width="stretch")
+    csv_button(hist, "history_last_14_days", "csv_hist")
     st.dataframe(hist, hide_index=True, width="stretch", column_config={
         "Date": st.column_config.DateColumn("Date", format="DD MMM YYYY"),
         "Completion": st.column_config.ProgressColumn("Completion", min_value=0, max_value=100, format="%.0f%%"),
@@ -568,6 +588,11 @@ def page_habits(uid, ref):
                 key = f"chk-{state}-d{j}-h{h['id']}-{wk}"
                 cols[j + 1].checkbox(f"{h['name']} {d}", value=(h["id"], d.isoformat()) in done, key=key,
                                      label_visibility="collapsed", on_change=toggle, args=(h["id"], d, key))
+    grid_df = pd.DataFrame(
+        [{"Habit": h["name"], "Category": h["category"] or "Other",
+          **{f"{DAYS[j]} {d:%d %b}": "Done" if (h["id"], d.isoformat()) in done else "" for j, d in enumerate(days)},
+          "Days done": days_done[i]} for i, h in enumerate(habits)])
+    csv_button(grid_df, f"weekly_checkin_{wk}", "csv_grid")
     st.markdown(
         '<div class="glegend"><span><i style="background:#DCFCE7;border:1px solid #16A34A"></i>Completed</span>'
         '<span><i style="background:#FEF2F2;border:1px solid #FCA5A5"></i>Missed</span>'
@@ -584,6 +609,10 @@ def page_habits(uid, ref):
                     f'<div class="pbar"><span style="width:{r:.0f}%;background:{c}"></span></div>'
                     f'<div class="pc" style="color:{c}">{r:.0f}%</div><div class="cue">{h["cue"] or ""}</div></div>')
     st.markdown(f'<div class="ptable">{"".join(rows)}</div>', unsafe_allow_html=True)
+    csv_button(pd.DataFrame({"Habit": [h["name"] for h in habits], "Days done": days_done,
+                             "Consistency %": [round(pct(d, 7)) for d in days_done],
+                             "Cue / Note": [h["cue"] or "" for h in habits]}),
+               f"consistency_{wk}", "csv_cons")
     st.markdown(
         '<div class="glegend"><span><i style="background:#EF4444"></i>0–30% Red</span>'
         '<span><i style="background:#F97316"></i>31–60% Orange</span>'
