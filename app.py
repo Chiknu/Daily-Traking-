@@ -601,6 +601,12 @@ if "user" not in st.session_state:
 
 user = st.session_state["user"]
 uid = user["id"]
+
+# New users automatically get the default habits (they can edit them in Manage Habits).
+if not db.list_rows("habits", uid):
+    db.save_rows("habits", uid, [
+        {"id": None, "name": n, "category": c, "cue": q, "active": True}
+        for n, c, q in STARTER_HABITS])
 with st.sidebar:
     st.markdown('<div class="brand">Life Tracker</div><div class="brand-sub">Goals &amp; habits workspace</div>',
                 unsafe_allow_html=True)
