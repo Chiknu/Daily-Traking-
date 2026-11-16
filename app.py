@@ -758,8 +758,7 @@ def page_monthly(uid, ref):
 
 # --------------------------------------------------------------- manage habits
 def page_manage(uid):
-    page_header("Manage Habits", "Add, rename or pause the habits you track")
-    st.caption("Untick Active to pause a habit; its history is always kept.")
+    page_header("Manage Habits", "Add new habits, edit them any time, or pause the ones you don't need")
     if not db.list_rows("habits", uid):
         empty_state("Start with a ready-made routine",
                     "Load 10 common habits, then edit them to fit your day.")
@@ -769,15 +768,56 @@ def page_manage(uid):
                 for n, c, q in STARTER_HABITS])
             st.rerun()
         st.write("")
-    table_editor(
-        "habits", uid, "hb", bool_cols=("active",), text_cols=("cue",),
-        defaults={"category": "Other", "active": True, "cue": ""},
-        config={
-            "name": st.column_config.TextColumn("Habit / Daily Task", required=True, width="large"),
-            "category": st.column_config.SelectboxColumn("Category", options=CATS),
-            "cue": st.column_config.TextColumn("Cue / Note", width="large"),
-            "active": st.column_config.CheckboxColumn("Active"),
-        })
+
+    # ---- add a new habit
+    with st.container(border=True):
+        st.markdown("**Add a new habit**")
+        with st.form("add_habit", border=False, clear_on_submit=True):
+            c1, c2, c3 = st.columns([3, 2, 3], gap="small")
+            nm = c1.text_input("Habit name", placeholder="e.g. Read 20 pages")
+            cat = c2.selectbox("Category", CATS, index=CATS.index("Other") if "Other" in CATS else 0)
+            cue = c3.text_input("Cue / note (optional)", placeholder="e.g. After dinner")
+            if st.form_submit_button("Add habit", type="primary", icon=":material/add:"):
+                if not nm.strip():
+                    st.error("Please type a habit name.")
+                else:
+                    db.save_rows("habits", uid, [{"id": None, "name": nm.strip(), "category": cat,
+                                                  "cue": cue.strip(), "active": True}])
+                    st.toast("Habit added", icon=":material/check_circle:")
+                    st.rerun()
+
+    # ---- edit existing habits
+    habits = db.list_rows("habits", uid)
+    section(f"Your habits ({sum(bool(h['active']) for h in habits)} active of {len(habits)})")
+    if habits:
+        with st.form("edit_habits", border=False):
+            with st.container(border=True):
+                w = [3, 2, 3, 1]
+                hdr = st.columns(w, gap="small")
+                for col, t in zip(hdr, ["Habit", "Category", "Cue / note", "Active"]):
+                    col.markdown(f'<div class="gh" style="text-align:left">{t.upper()}</div>', unsafe_allow_html=True)
+                for h in habits:
+                    c1, c2, c3, c4 = st.columns(w, gap="small", vertical_alignment="center")
+                    c1.text_input("Habit", value=h["name"], key=f"mh_n_{h['id']}", label_visibility="collapsed")
+                    cur_cat = h["category"] if h["category"] in CATS else "Other"
+                    c2.selectbox("Category", CATS, index=CATS.index(cur_cat) if cur_cat in CATS else 0,
+                                 key=f"mh_c_{h['id']}", label_visibility="collapsed")
+                    c3.text_input("Cue", value=h["cue"] or "", key=f"mh_q_{h['id']}", label_visibility="collapsed")
+                    c4.toggle("Active", value=bool(h["active"]), key=f"mh_a_{h['id']}", label_visibility="collapsed")
+            if st.form_submit_button("Save changes", type="primary", icon=":material/save:"):
+                recs = []
+                for h in habits:
+                    recs.append({"id": h["id"],
+                                 "name": st.session_state[f"mh_n_{h['id']}"].strip() or h["name"],
+                                 "category": st.session_state[f"mh_c_{h['id']}"],
+                                 "cue": st.session_state[f"mh_q_{h['id']}"].strip(),
+                                 "active": st.session_state[f"mh_a_{h['id']}"]})
+                db.save_rows("habits", uid, recs)
+                st.toast("Changes saved", icon=":material/check_circle:")
+                st.rerun()
+        st.caption("Switch Active off to pause a habit - it disappears from daily tracking but its history is kept.")
+        csv_button(pd.DataFrame([{"Habit": h["name"], "Category": h["category"], "Cue / note": h["cue"],
+                                  "Active": bool(h["active"])} for h in habits]), "habits", "csv_habits")
 
 
 # --------------------------------------------------------------------- settings
@@ -857,8 +897,8 @@ with st.sidebar:
     page = st.radio("Navigation", list(PAGES), format_func=lambda k: f"{PAGES[k]} {k}",
                     label_visibility="collapsed")
     st.divider()
-    ref = st.date_input("Reporting date", value=date.today(),
-                        help="The week and month shown on every page are based on this date.")
+    ref = st.date_input("Start date", value=date.today(),
+                        help="Pick any date - the week (Mon-Sun) and month containing it are shown on every page.")
     if st.button("Log out", width="stretch", icon=":material/logout:"):
         db.end_session(st.session_state.get("_token"))
         st.session_state.clear()
