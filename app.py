@@ -152,6 +152,9 @@ div[data-testid="stAlert"] { border-radius:12px; }
 [data-testid="stSidebarCollapseButton"] button svg, [data-testid="stExpandSidebarButton"] svg { color:#fff !important; fill:#fff !important; }
 [data-testid="stSidebarCollapseButton"] { opacity:1 !important; visibility:visible !important; }
 
+.stButton > button[kind="tertiary"] { color:var(--brand); font-weight:600; font-size:.88rem; }
+.stButton > button[kind="tertiary"]:hover { color:var(--brand-dark); background:transparent; text-decoration:underline; }
+
 /* tinted summary cards */
 .kpi.t-purple { background:#F1EEFF; border-color:#DDD6FE; } .kpi.t-purple .v { color:#4F46E5; }
 .kpi.t-green  { background:#E8F8EE; border-color:#BBF7D0; } .kpi.t-green .v  { color:#16A34A; }
@@ -394,18 +397,45 @@ def auth_view():
                     '<div class="s">Daily habits, weekly objectives and monthly targets in one workspace.</div></div>',
                     unsafe_allow_html=True)
         with st.container(border=True, key="authcard"):
-            t_login, t_signup, t_forgot = st.tabs(["Log in", "Create account", "Forgot password"])
+            t_login, t_signup = st.tabs(["Log in", "Create account"])
             with t_login:
-                with st.form("login", border=False):
-                    u = st.text_input("Username")
-                    p = st.text_input("Password", type="password")
-                    if st.form_submit_button("Log in", type="primary", width="stretch"):
-                        user = db.authenticate(u, p)
-                        if user:
-                            st.session_state["user"] = user
-                            st.session_state["_new_token"] = db.create_session(user["id"])
-                            st.rerun()
-                        st.error("Incorrect username or password.")
+                if not st.session_state.get("_forgot"):
+                    with st.form("login", border=False):
+                        u = st.text_input("Username")
+                        p = st.text_input("Password", type="password")
+                        if st.form_submit_button("Log in", type="primary", width="stretch"):
+                            user = db.authenticate(u, p)
+                            if user:
+                                st.session_state["user"] = user
+                                st.session_state["_new_token"] = db.create_session(user["id"])
+                                st.rerun()
+                            st.error("Incorrect username or password.")
+                    if st.button("Forgot password?", key="open_forgot", type="tertiary", width="stretch"):
+                        st.session_state["_forgot"] = True
+                        st.rerun()
+                else:
+                    st.markdown("**Reset your password**")
+                    st.caption("Enter your username and the recovery code you saved when you created your account.")
+                    with st.form("forgot", border=False):
+                        fu = st.text_input("Username", key="fg_user")
+                        fc = st.text_input("Recovery code", placeholder="XXXX-XXXX-XXXX", key="fg_code")
+                        n1 = st.text_input("New password", type="password", help="At least 6 characters", key="fg_p1")
+                        n2 = st.text_input("Confirm new password", type="password", key="fg_p2")
+                        if st.form_submit_button("Reset password", type="primary", width="stretch"):
+                            if len(n1) < 6:
+                                st.error("Password must be at least 6 characters.")
+                            elif n1 != n2:
+                                st.error("Passwords do not match.")
+                            else:
+                                new_code = db.reset_password(fu, fc, n1)
+                                if new_code:
+                                    st.success("Password reset! Click 'Back to log in' and sign in with your new password.")
+                                    recovery_box(new_code, new=True)
+                                else:
+                                    st.error("Username or recovery code is incorrect.")
+                    if st.button("← Back to log in", key="close_forgot", type="tertiary", width="stretch"):
+                        st.session_state["_forgot"] = False
+                        st.rerun()
             with t_signup:
                 with st.form("signup", border=False):
                     u = st.text_input("Username", help="3-30 characters: letters, numbers, _ or .")
@@ -423,25 +453,6 @@ def auth_view():
                             (st.success if ok else st.error)(msg)
                             if ok:
                                 recovery_box(code)
-            with t_forgot:
-                st.caption("Enter your username and the recovery code you saved when you created your account.")
-                with st.form("forgot", border=False):
-                    fu = st.text_input("Username", key="fg_user")
-                    fc = st.text_input("Recovery code", placeholder="XXXX-XXXX-XXXX", key="fg_code")
-                    n1 = st.text_input("New password", type="password", help="At least 6 characters", key="fg_p1")
-                    n2 = st.text_input("Confirm new password", type="password", key="fg_p2")
-                    if st.form_submit_button("Reset password", type="primary", width="stretch"):
-                        if len(n1) < 6:
-                            st.error("Password must be at least 6 characters.")
-                        elif n1 != n2:
-                            st.error("Passwords do not match.")
-                        else:
-                            new_code = db.reset_password(fu, fc, n1)
-                            if new_code:
-                                st.success("Password reset! Go to the Log in tab and sign in with your new password.")
-                                recovery_box(new_code, new=True)
-                            else:
-                                st.error("Username or recovery code is incorrect.")
 
 
 # ------------------------------------------------------------------- dashboard
