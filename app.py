@@ -379,6 +379,12 @@ def _cookie_js(token):
     st.components.v1.html(html, height=0)
 
 
+def recovery_box(code, new=False):
+    st.warning(("Your NEW recovery code (the old one no longer works)" if new else "Your recovery code")
+               + " - save it now, it is shown only once. You need it to reset a forgotten password.")
+    st.code(code, language=None)
+
+
 def auth_view():
     _, mid, _ = st.columns([1, 1.15, 1])
     with mid:
@@ -388,7 +394,7 @@ def auth_view():
                     '<div class="s">Daily habits, weekly objectives and monthly targets in one workspace.</div></div>',
                     unsafe_allow_html=True)
         with st.container(border=True, key="authcard"):
-            t_login, t_signup = st.tabs(["Log in", "Create account"])
+            t_login, t_signup, t_forgot = st.tabs(["Log in", "Create account", "Forgot password"])
             with t_login:
                 with st.form("login", border=False):
                     u = st.text_input("Username")
@@ -413,8 +419,29 @@ def auth_view():
                         elif p1 != p2:
                             st.error("Passwords do not match.")
                         else:
-                            ok, msg = db.create_user(u, p1)
+                            ok, msg, code = db.create_user(u, p1)
                             (st.success if ok else st.error)(msg)
+                            if ok:
+                                recovery_box(code)
+            with t_forgot:
+                st.caption("Enter your username and the recovery code you saved when you created your account.")
+                with st.form("forgot", border=False):
+                    fu = st.text_input("Username", key="fg_user")
+                    fc = st.text_input("Recovery code", placeholder="XXXX-XXXX-XXXX", key="fg_code")
+                    n1 = st.text_input("New password", type="password", help="At least 6 characters", key="fg_p1")
+                    n2 = st.text_input("Confirm new password", type="password", key="fg_p2")
+                    if st.form_submit_button("Reset password", type="primary", width="stretch"):
+                        if len(n1) < 6:
+                            st.error("Password must be at least 6 characters.")
+                        elif n1 != n2:
+                            st.error("Passwords do not match.")
+                        else:
+                            new_code = db.reset_password(fu, fc, n1)
+                            if new_code:
+                                st.success("Password reset! Go to the Log in tab and sign in with your new password.")
+                                recovery_box(new_code, new=True)
+                            else:
+                                st.error("Username or recovery code is incorrect.")
 
 
 # ------------------------------------------------------------------- dashboard
@@ -742,7 +769,36 @@ def page_manage(uid):
 
 # --------------------------------------------------------------------- settings
 def page_settings(uid, username):
-    page_header("Settings", "Export a copy of your data")
+    page_header("Settings", "Password, recovery code and data export")
+    with st.container(border=True):
+        st.subheader("Change password")
+        with st.form("chgpw", border=False, clear_on_submit=True):
+            cur = st.text_input("Current password", type="password")
+            n1 = st.text_input("New password", type="password", help="At least 6 characters")
+            n2 = st.text_input("Confirm new password", type="password")
+            if st.form_submit_button("Update password", type="primary", icon=":material/lock_reset:"):
+                if len(n1) < 6:
+                    st.error("New password must be at least 6 characters.")
+                elif n1 != n2:
+                    st.error("New passwords do not match.")
+                elif db.change_password(uid, cur, n1, st.session_state.get("_token")):
+                    st.success("Password updated. Other devices have been signed out.")
+                else:
+                    st.error("Current password is incorrect.")
+    st.write("")
+    with st.container(border=True):
+        st.subheader("Recovery code")
+        st.caption("Used on the login page (Forgot password) if you ever forget your password. "
+                   "Generating a new code makes the old one stop working.")
+        with st.form("reccode", border=False, clear_on_submit=True):
+            pw = st.text_input("Current password", type="password", key="rc_pw")
+            if st.form_submit_button("Generate new recovery code", icon=":material/key:"):
+                code = db.new_recovery_code(uid, pw)
+                if code:
+                    recovery_box(code, new=True)
+                else:
+                    st.error("Current password is incorrect.")
+    st.write("")
     with st.container(border=True):
         st.subheader("Export data")
         st.caption("Download everything stored for your account (habits, logs, goals, targets, notes) as JSON.")
