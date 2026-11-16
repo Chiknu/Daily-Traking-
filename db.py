@@ -99,6 +99,11 @@ def conn():
 def init_db():
     with conn() as c:
         c.executescript(SCHEMA)
+        # migration: recovery-code columns for password reset (older databases don't have them)
+        cols = {r["name"] for r in c.execute("PRAGMA table_info(users)")}
+        if "rec_salt" not in cols:
+            c.execute("ALTER TABLE users ADD COLUMN rec_salt BLOB")
+            c.execute("ALTER TABLE users ADD COLUMN rec_hash BLOB")
 
 
 # ----------------------------------------------------------------- auth
@@ -106,18 +111,78 @@ def _hash(password: str, salt: bytes) -> bytes:
     return hashlib.pbkdf2_hmac("sha256", password.encode(), salt, PBKDF2_ITERATIONS)
 
 
+_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # no look-alike characters (0/O, 1/I)
+
+
+def _norm_code(code: str) -> str:
+    return "".join(ch for ch in code.upper() if ch.isalnum())
+
+
+def _new_code() -> str:
+    raw = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(12))
+    return "-".join(raw[i:i + 4] for i in range(0, 12, 4))
+
+
+def _set_recovery_code(c, user_id: int) -> str:
+    code = _new_code()
+    salt = secrets.token_bytes(16)
+    c.execute("UPDATE users SET rec_salt=?, rec_hash=? WHERE id=?",
+              (salt, _hash(_norm_code(code), salt), user_id))
+    return code
+
+
 def create_user(username: str, password: str):
+    """Returns (ok, message, recovery_code). The recovery code is shown to the user once."""
     username = username.strip()
     salt = secrets.token_bytes(16)
     try:
         with conn() as c:
-            c.execute(
+            cur = c.execute(
                 "INSERT INTO users(username, salt, pw_hash) VALUES(?,?,?)",
                 (username, salt, _hash(password, salt)),
             )
-        return True, "Account created! You can log in now."
+            code = _set_recovery_code(c, cur.lastrowid)
+        return True, "Account created! You can log in now.", code
     except sqlite3.IntegrityError:
-        return False, "That username is already taken."
+        return False, "That username is already taken.", None
+
+
+def new_recovery_code(user_id: int, password: str):
+    """Issue a fresh recovery code (old one stops working). Needs the current password."""
+    with conn() as c:
+        row = c.execute("SELECT salt, pw_hash FROM users WHERE id=?", (user_id,)).fetchone()
+        if not row or not hmac.compare_digest(_hash(password, row["salt"]), row["pw_hash"]):
+            return None
+        return _set_recovery_code(c, user_id)
+
+
+def change_password(user_id: int, current: str, new: str, keep_token=None) -> bool:
+    """Change password (needs the current one). Other logged-in devices are signed out."""
+    with conn() as c:
+        row = c.execute("SELECT salt, pw_hash FROM users WHERE id=?", (user_id,)).fetchone()
+        if not row or not hmac.compare_digest(_hash(current, row["salt"]), row["pw_hash"]):
+            return False
+        salt = secrets.token_bytes(16)
+        c.execute("UPDATE users SET salt=?, pw_hash=? WHERE id=?", (salt, _hash(new, salt), user_id))
+        c.execute("DELETE FROM sessions WHERE user_id=? AND token_hash != ?",
+                  (user_id, _tok_hash(keep_token or "")))
+    return True
+
+
+def reset_password(username: str, code: str, new: str):
+    """Forgot-password flow: username + recovery code -> new password.
+    Returns a NEW recovery code on success (the used one is replaced), else None."""
+    with conn() as c:
+        row = c.execute("SELECT id, rec_salt, rec_hash FROM users WHERE username=?",
+                        (username.strip(),)).fetchone()
+        if not row or not row["rec_hash"]:
+            return None
+        if not hmac.compare_digest(_hash(_norm_code(code), row["rec_salt"]), row["rec_hash"]):
+            return None
+        salt = secrets.token_bytes(16)
+        c.execute("UPDATE users SET salt=?, pw_hash=? WHERE id=?", (salt, _hash(new, salt), row["id"]))
+        c.execute("DELETE FROM sessions WHERE user_id=?", (row["id"],))   # sign out everywhere
+        return _set_recovery_code(c, row["id"])
 
 
 def authenticate(username: str, password: str):
