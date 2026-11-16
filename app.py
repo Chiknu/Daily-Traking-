@@ -195,6 +195,30 @@ div[data-testid="stAlert"] { border-radius:12px; }
 .pbar { height:9px; border-radius:99px; background:#EEF0F5; } .pbar span { display:block; height:100%; border-radius:99px; }
 .prow .pc { font-weight:700; }
 
+/* ---------- phone layout ---------- */
+@media (max-width: 640px) {
+  .block-container { padding-left:.9rem; padding-right:.9rem; padding-top:3.5rem; }
+  .ph .t { font-size:1.55rem; }
+  .kpi { min-height:0; padding:14px 16px; }
+  .kpi .v { font-size:1.6rem; }
+  .sec { margin-top:1.6rem; }
+  /* weekly check-in: keep the 8 columns side by side instead of stacking */
+  .st-key-wkgrid div[data-testid="stHorizontalBlock"] { flex-wrap:nowrap !important; gap:2px !important; }
+  .st-key-wkgrid div[data-testid="stColumn"] { min-width:0 !important; width:auto !important; flex:1 1 0 !important; }
+  .st-key-wkgrid div[data-testid="stColumn"]:first-child { flex:2.4 1 0 !important; }
+  .st-key-wkgrid [data-testid="stVerticalBlockBorderWrapper"], .st-key-wkgrid { padding-left:2px; padding-right:2px; }
+  [class*="st-key-chk-"] { padding:6px 0; min-height:34px; }
+  .hname { font-size:.78rem; line-height:1.2; } .hname span { display:none; }
+  .gh { font-size:.6rem; } .gh b { font-size:.85rem; }
+  /* consistency table: habit, bar, % only */
+  .prow { grid-template-columns:1.5fr 1.3fr .55fr; gap:8px; }
+  .prow > :nth-child(2), .prow > :nth-child(5) { display:none; }
+  .ptable { padding:4px 12px; }
+  /* manage habits: each habit becomes its own card */
+  .st-key-mhhdr { display:none; }
+  [class*="st-key-mhrow_"] { border:1px solid var(--line); border-radius:12px; padding:10px 10px 4px; margin-bottom:10px; background:#fff; }
+}
+
 /* login page */
 .login-hero { text-align:center; margin-bottom:1.4rem; }
 .login-logo { width:58px; height:58px; margin:0 auto 14px; border-radius:16px; background:var(--brand);
@@ -628,7 +652,7 @@ def page_habits(uid, ref):
     def toggle(hid, day, key):
         db.set_log(uid, hid, day, st.session_state[key])
 
-    with st.container(border=True):
+    with st.container(border=True, key="wkgrid"):
         cols = st.columns([2.6] + [1] * 7, gap="small", vertical_alignment="center")
         cols[0].markdown('<div class="gh" style="text-align:left">HABIT</div>', unsafe_allow_html=True)
         for j, d in enumerate(days):
@@ -792,18 +816,21 @@ def page_manage(uid):
     if habits:
         with st.form("edit_habits", border=False):
             with st.container(border=True):
-                w = [3, 2, 3, 1]
-                hdr = st.columns(w, gap="small")
+                w = [3, 2, 3, 1.2]
+                with st.container(key="mhhdr"):
+                    hdr = st.columns(w, gap="small")
                 for col, t in zip(hdr, ["Habit", "Category", "Cue / note", "Active"]):
                     col.markdown(f'<div class="gh" style="text-align:left">{t.upper()}</div>', unsafe_allow_html=True)
                 for h in habits:
+                  with st.container(key=f"mhrow_{h['id']}"):
                     c1, c2, c3, c4 = st.columns(w, gap="small", vertical_alignment="center")
                     c1.text_input("Habit", value=h["name"], key=f"mh_n_{h['id']}", label_visibility="collapsed")
                     cur_cat = h["category"] if h["category"] in CATS else "Other"
                     c2.selectbox("Category", CATS, index=CATS.index(cur_cat) if cur_cat in CATS else 0,
                                  key=f"mh_c_{h['id']}", label_visibility="collapsed")
-                    c3.text_input("Cue", value=h["cue"] or "", key=f"mh_q_{h['id']}", label_visibility="collapsed")
-                    c4.toggle("Active", value=bool(h["active"]), key=f"mh_a_{h['id']}", label_visibility="collapsed")
+                    c3.text_input("Cue", value=h["cue"] or "", key=f"mh_q_{h['id']}", label_visibility="collapsed",
+                                  placeholder="Cue / note")
+                    c4.toggle("Active", value=bool(h["active"]), key=f"mh_a_{h['id']}")
             if st.form_submit_button("Save changes", type="primary", icon=":material/save:"):
                 recs = []
                 for h in habits:
