@@ -16,12 +16,14 @@ st.set_page_config(page_title="Life Tracker", page_icon=":material/insights:", l
 
 
 @st.cache_resource
-def _init():
+def _init(schema_version):
+    """Runs once per server. Change the version string whenever db.py's schema changes,
+    otherwise Streamlit keeps the cached result and never migrates the database."""
     db.init_db()
     return True
 
 
-_init()
+_init('v3-recovery-code')
 
 # ------------------------------------------------------------------ constants
 DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
